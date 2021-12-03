@@ -1,13 +1,7 @@
-# Unet
-this is an implemetion of Unet in Pytorch and it's architecture is as follows which is the same with paper of [Unet](https://arxiv.org/abs/1505.04597)
+import torch
+import torch.nn as nn
 
 
-![architecture of Unet](picture/Unet.jpg)
-
-# component of Unet
-## Convolution and downsampling
-two layers of convolution which consists of BatchNorm and Relu and then downsampling
-~~~python
 class TwoConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(TwoConv, self).__init__()
@@ -23,6 +17,7 @@ class TwoConv(nn.Module):
     def forward(self, x):
         return self.twoconv(x)
 
+
 class TwoConvDown(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(TwoConvDown, self).__init__()
@@ -33,12 +28,8 @@ class TwoConvDown(nn.Module):
 
     def forward(self, x):
         return self.twoconvdown(x)
-~~~
 
-## Upsampling and Concatation
 
-there are two modes, "pad" and "crop" to deal with  the different size of two parts in Unet. "crop" is the same operation with paper of Unet.
-~~~python
 class UpCat(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpCat, self).__init__()
@@ -68,13 +59,58 @@ class UpCat(nn.Module):
         x = torch.cat([x2, x1], dim=1)
         x = self.twoconv(x)
         return x
-~~~
 
-## main part of Unet
-~~~python
+
+
 class Unet(nn.Module):
     def __init__(self, in_channels,
                  channel_list: list = [64, 128, 256, 512, 1024],
                  length = 5,
-                 mode = "pad")
-~~~
+                 mode = "pad"):
+        super(Unet, self).__init__()
+        self.twoconv = TwoConv(in_channels, channel_list[0])
+        self.len = length
+        self.mode = mode
+
+
+        twoconvdown_list = []
+        for i in range(1, self.len):
+            twoconvdown_list.append(TwoConvDown(channel_list[i-1], channel_list[i]))
+        self.twoconvdown = nn.Sequential(*twoconvdown_list)
+
+        upcat_list = []
+        for i in range(self.len-1, 0, -1):
+            upcat_list.append(UpCat(channel_list[i], channel_list[i-1]))
+        self.upcat = nn.Sequential(*upcat_list)
+
+        self.outconv = nn.Conv2d(in_channels=channel_list[0], out_channels=2, kernel_size=1)
+
+    def forward(self, x):
+        down_result = []
+        x = self.twoconv(x)
+        down_result.append(x)
+
+        for layers in self.twoconvdown:
+            x = layers(x)
+            down_result.append(x)
+
+        up_result = []
+        x = self.upcat[0](down_result[self.len-1], down_result[self.len-2], self.mode)
+        up_result.append(x)
+        for i in range(1, self.len-1):
+            x = self.upcat[i](x, down_result[self.len-i-2], self.mode)
+            up_result.append(x)
+
+        x = self.outconv(x)
+        return x
+
+
+
+
+if __name__ == "__main__":
+    model = Unet(in_channels=3, mode="crop")
+    # print(model)
+    img = torch.rand([4, 3, 572, 572])
+    result = model(img)
+    print(result.size())
+

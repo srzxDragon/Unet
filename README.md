@@ -2,7 +2,7 @@
 this is an implemetion of Unet in Pytorch and it's architecture is as follows which is the same with paper of [Unet](https://arxiv.org/abs/1505.04597)
 
 
-![architecture of Unet](picture/Unet.jpg)
+![architecture of Unet](Unet.jpg)
 
 # component of Unet
 ## Convolution and downsampling
